@@ -202,7 +202,7 @@ class LSTM(torch.nn.Module):
         # a single higher rank Tensor.
         num_tracks = observed.size(1)
         hidden_cell_state = (
-            [torch.zeros(self.hidden_dim, device=observed.device) for _ in range(num_tracks)],
+            [torch.zeros(self.hidden_dim, deLSTMvice=observed.device) for _ in range(num_tracks)],
             [torch.zeros(self.hidden_dim, device=observed.device) for _ in range(num_tracks)],
         )
 

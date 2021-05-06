@@ -101,6 +101,12 @@ def main(args=None):
                 device = torch.device('cpu')
                 predictor.model.to(device)
                 goal_flag = predictor.model.goal_flag
+            elif 'rgl' in model_name:
+                print("RGL")
+                predictor = trajnetbaselines.lstm.RGLPredictor.load(model)
+                device = torch.device('cpu')
+                predictor.model.to(device)
+                goal_flag = predictor.model.goal_flag
             else:
                 print("Model Architecture not recognized")
                 raise ValueError

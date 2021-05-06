@@ -7,7 +7,6 @@ import sys
 import time
 import random
 import os
-import pickle
 import torch
 import numpy as np
 
@@ -257,8 +256,15 @@ class Trainer(object):
         prediction_truth = batch_scene[self.obs_length:self.seq_length-1].clone()
         targets = batch_scene[self.obs_length:self.seq_length] - batch_scene[self.obs_length-1:self.seq_length-1]
 
+        # print(observed[0])
+        # print(batch_scene_goal[0])
+        # print(batch_split[0])
+        # print(prediction_truth[0])
+        # input()
         rel_outputs, outputs = self.model(observed, batch_scene_goal, batch_split, prediction_truth)
 
+        # print(rel_outputs[0])
+        # input()
         ## Loss wrt primary tracks of each scene only
         l2_loss = self.criterion(rel_outputs[-self.pred_length:], targets, batch_split) * self.batch_size
         loss = l2_loss
@@ -266,7 +272,6 @@ class Trainer(object):
         # l2_loss = self.criterion(rel_outputs[-self.pred_length:], targets, batch_split) * self.batch_size
         # col_loss = self.col_weight * self.criterion.col_loss(outputs[-self.pred_length:], batch_scene[-self.pred_length:], batch_split, self.col_gamma)
         # loss = l2_loss + col_loss
-
 
         self.optimizer.zero_grad()
         loss.backward()
@@ -469,6 +474,11 @@ def main(epochs=25):
     ## Prepare data
     train_scenes, train_goals, _ = prepare_data(args.path, subset='/train/', sample=args.sample, goals=args.goals)
     val_scenes, val_goals, val_flag = prepare_data(args.path, subset='/val/', sample=args.sample, goals=args.goals)
+
+    import pprint
+
+    # pprint.PrettyPrinter().pprint(train_scenes[0])
+    # input()
 
     ## pretrained pool model (if any)
     pretrained_pool = None
