@@ -1,7 +1,6 @@
 import argparse
-from typing import Iterable
+from datetime import datetime
 
-from .state import FullState, JointState, ObservableState
 from .model_predictive_rl import ModelPredictiveRL
 from .memory import ReplayMemory
 from .data_load_utils import prepare_data
@@ -15,14 +14,11 @@ import random
 import sys
 import torch
 import socket
-import pickle
 from pprint import pformat
 import pprint
 import importlib.util
 
 from .. import __version__ as VERSION
-
-from tqdm import tqdm
 
 import logging
 import torch
@@ -64,25 +60,32 @@ def main(epochs=25):
                         help='type of interaction encoder')
     parser.add_argument('--sample', default=1.0, type=float,
                         help='sample ratio when loading train/val scenes')
-
+    parser.add_argument('--visualise', action='store_true',
+                        help='flag to visualise the validation stage')
+    parser.add_argument('--reward', default='position',
+                        choices=('position', 'velocity', 'next_ground_truth'),
+                        help='type of reward')
+    parser.add_argument('--supervised-trainer', action='store_true',
+                        help='User supervised trainer rather than rl trainer')
+                    
     # Loading pre-trained models
     pretrain = parser.add_argument_group('pretraining')
     pretrain.add_argument('--load-state', default=None,
                           help='load a pickled model state dictionary before training')
-    pretrain.add_argument('--load-full-state', default=None,
-                          help='load a pickled full state dictionary before training')
-    pretrain.add_argument('--nonstrict-load-state', default=None,
-                          help='load a pickled state dictionary before training')
+    # pretrain.add_argument('--load-full-state', default=None,
+    #                       help='load a pickled full state dictionary before training')
+    # pretrain.add_argument('--nonstrict-load-state', default=None,
+    #                       help='load a pickled state dictionary before training')
 
     # Augmentations
-    parser.add_argument('--augment', action='store_true',
-                        help='perform rotation augmentation')
-    parser.add_argument('--normalize_scene', action='store_true',
-                        help='rotate scene so primary pedestrian moves northwards at end of observation')
-    parser.add_argument('--augment_noise', action='store_true',
-                        help='flag to add noise to observations for robustness')
-    parser.add_argument('--obs_dropout', action='store_true',
-                        help='perform observation length dropout')
+    # parser.add_argument('--augment', action='store_true',
+    #                     help='perform rotation augmentation')
+    # parser.add_argument('--normalize_scene', action='store_true',
+    #                     help='rotate scene so primary pedestrian moves northwards at end of observation')
+    # parser.add_argument('--augment_noise', action='store_true',
+    #                     help='flag to add noise to observations for robustness')
+    # parser.add_argument('--obs_dropout', action='store_true',
+    #                     help='perform observation length dropout')
 
     args = parser.parse_args()
 
@@ -103,10 +106,7 @@ def main(epochs=25):
 
     # configure logging
     from pythonjsonlogger import jsonlogger
-    if args.load_full_state:
-        file_handler = logging.FileHandler(args.output + '.log', mode='a')
-    else:
-        file_handler = logging.FileHandler(args.output + '.log', mode='w')
+    file_handler = logging.FileHandler(args.output + '.log', mode='w')
     file_handler.setFormatter(jsonlogger.JsonFormatter(
         '%(message)s %(levelname)s %(name)s %(asctime)s'))
     stdout_handler = logging.StreamHandler(sys.stdout)
@@ -119,15 +119,6 @@ def main(epochs=25):
         'version': VERSION,
         'hostname': socket.gethostname(),
     }))
-
-    # refactor args for --load-state
-    # loading a previously saved model
-    args.load_state_strict = True
-    if args.nonstrict_load_state:
-        args.load_state = args.nonstrict_load_state
-        args.load_state_strict = False
-    if args.load_full_state:
-        args.load_state = args.load_full_state
 
     # add args.device
     args.device = torch.device('cpu')
@@ -160,9 +151,17 @@ def main(epochs=25):
     epsilon_decay = train_config.train.epsilon_decay
 
     # trainer_config
+    if args.load_state is not None:
+        policy.load_model(args.load_state)
+    
     model = policy.get_model()
+
     memory = ReplayMemory(10000)
-    writer = SummaryWriter(log_dir='OUTPUT_BLOCK/rgl_log')
+
+    now = datetime.now()
+    date_time = now.strftime("%Y.%m.%d_%H.%M.%S")
+
+    writer = SummaryWriter(log_dir=f'OUTPUT_BLOCK/rgl_log/{date_time}')
     explorer = Explorer(args.device, train_scenes, val_scenes,  memory=memory,
                         gamma=policy.gamma, target_policy=policy, writer=writer)
     batch_size = 100
@@ -188,7 +187,7 @@ def main(epochs=25):
     val_samples = 100
 
     episode = 0
-    while episode < 500:
+    while episode < 10000:
 
         # Decay epsilon over time
         if episode < epsilon_decay:
@@ -200,18 +199,21 @@ def main(epochs=25):
 
         # Collect k samples
         explorer.run_k_episodes(
-            batch_size, policy, clip_scene=4, label=f"Training | Episode {episode}")
+            batch_size, policy, clip_scene=4, label=f"Training | Episode {episode}", episode=episode, show_vis=args.visualise, reward=args.reward, supervised=args.supervised_trainer)
 
         trainer.optimize_batch(batch_size, episode)
-        explorer.log(f"RGL_Trajnet", episode)
+        explorer.log(f"RGL_Trajnet_Train", episode)
 
         episode += 1
 
         if episode % save_interval == 0:
-
-            file_name = f'OUTPUT_BLOCK/rgl_models/rgl.episode{episode}.pth'
+            output_dir = f'OUTPUT_BLOCK/rgl_models/{args.reward}_{date_time}'
+            if not os.path.isdir(output_dir):
+                os.mkdir(output_dir)
+            file_name = f'{output_dir}/rgl.episode{episode}.pth'
             file = open(file_name, 'wb')
-            pickle.dump(model,file)
+            print(f'Saving model to {file_name}')
+            policy.save_model(file)
 
         if episode % target_update_interval == 0:
             logging.info("Updating Model")
@@ -220,9 +222,10 @@ def main(epochs=25):
         if episode % evaluation_interval == 0:
             policy.set_phase('val')
             explorer.run_k_episodes(
-                val_samples, policy, phase='val', clip_scene=4, label=f"Validation | Episode {episode}")
+                val_samples, policy, phase='val', clip_scene=4, label=f"Validation | Episode {episode}", show_vis=args.visualise, episode=episode)
             logging.info(
-                f"Reward per frame: {(explorer.statistics/val_samples):.2f}/1, total reward: {explorer.statistics:.2f}/{val_samples}")
+                f"Reward per sample: {(explorer.reward_sum/val_samples):.2f}, total reward: {explorer.reward_sum:.2f}")
+            explorer.log(f"RGL_Trajnet_Val", episode)
 
             policy.set_phase('train')
 

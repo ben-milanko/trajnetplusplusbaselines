@@ -4,7 +4,7 @@ import os
 from collections import OrderedDict
 import argparse
 import pickle
-
+import pprint as pp
 import numpy as np
 import scipy
 import torch
@@ -60,6 +60,9 @@ def main():
 
     scipy.seterr('ignore')
 
+    # print('FAST EVAL')
+    # input()
+
     ## Path to the data folder name to predict
     args.path = 'DATA_BLOCK/' + args.path + '/'
 
@@ -98,9 +101,15 @@ def main():
         elif 'vae' in model_name:
             predictor = trajnetbaselines.vae.VAEPredictor.load(model)
             goal_flag = predictor.model.goal_flag
+        elif 'rgl' in model_name:
+            predictor = trajnetbaselines.lstm.LSTMPredictor.load(model)
+            goal_flag = predictor.model.goal_flag
         else:
             predictor = trajnetbaselines.lstm.LSTMPredictor.load(model)
             goal_flag = predictor.model.goal_flag
+        
+        print(predictor)
+        input()
 
         # On CPU
         device = torch.device('cpu')
@@ -117,6 +126,9 @@ def main():
         all_goals = {}
         average_nll = 0
 
+        print(datasets)
+        input()
+
         ## Start writing in dataset/test_pred
         for dataset in datasets:
             # Model's name
@@ -126,7 +138,9 @@ def main():
             print('processing ' + name)
             if 'collision_test' in name:
                 continue
-
+            
+            print(args.path.replace('_pred', '_private') + dataset + '.ndjson')
+            input()
             ## Filter for Scene Type
             reader_tag = trajnetplusplustools.Reader(args.path.replace('_pred', '_private') + dataset + '.ndjson', scene_type='tags')
             if args.scene_type != 0:
@@ -153,10 +167,20 @@ def main():
                 scene_goals = [np.zeros((len(paths), 2)) for _, scene_id, paths in scenes]
 
             print("Getting Predictions")
+            print(predictor, model_name, scenes[0])
+            input()
             scenes = tqdm(scenes)
             ## Get all predictions in parallel. Faster!
-            pred_list = Parallel(n_jobs=12)(delayed(process_scene)(predictor, model_name, paths, scene_goal, args)
-                                            for (_, _, paths), scene_goal in zip(scenes, scene_goals))
+            
+            for (_, _, paths), scene_goal in zip(scenes, scene_goals):
+                pp.pprint(paths)
+                input()
+                predictions = predictor(paths, scene_goal, n_predict=args.pred_length, obs_length=args.obs_length, modes=args.modes, args=args) 
+                print(predictions)
+                input()
+
+            # pred_list = Parallel(n_jobs=12)(delayed(process_scene)(predictor, model_name, paths, scene_goal, args)
+            #                                 for (_, _, paths), scene_goal in zip(scenes, scene_goals))
 
             ## GT Scenes
             reader_gt = trajnetplusplustools.Reader(args.path.replace('_pred', '_private') + dataset + '.ndjson', scene_type='paths')

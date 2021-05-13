@@ -2,29 +2,26 @@ import torch
 
 
 class FullState(object):
-    def __init__(self, px, py, vx, vy, gx, gy):
-        self.px = px
-        self.py = py
+    def __init__(self, vx, vy, gx, gy):
         self.vx = vx
         self.vy = vy
         self.gx = gx
         self.gy = gy
 
-        self.position = (self.px, self.py)
         self.goal_position = (self.gx, self.gy)
         self.velocity = (self.vx, self.vy)
 
     def __add__(self, other):
-        return other + (self.px, self.py, self.vx, self.vy, self.gx, self.gy)
+        return other + (self.vx, self.vy, self.gx, self.gy)
 
     def __str__(self):
-        return ' '.join([str(x) for x in [self.px, self.py, self.vx, self.vy, self.gx, self.gy,]])
+        return ' '.join([str(x) for x in [self.vx, self.vy, self.gx, self.gy,]])
 
     def to_tuple(self):
-        return self.px, self.py, self.vx, self.vy, self.gx, self.gy
+        return self.vx, self.vy, self.gx, self.gy
 
     def get_observable_state(self):
-        return ObservableState(self.px, self.py, self.vx, self.vy)
+        return ObservableState(self.vx, self.vy)
 
 
 class ObservableState(object):
@@ -41,7 +38,7 @@ class ObservableState(object):
         return other + (self.px, self.py, self.vx, self.vy)
 
     def __str__(self):
-        return ' '.join([str(x) for x in [self.px, self.py, self.vx, self.vy, ]])
+        return ' '.join([str(x) for x in [self.px, self.py, self.vx, self.vy]])
 
     def to_tuple(self):
         return self.px, self.py, self.vx, self.vy, 

@@ -202,7 +202,7 @@ class LSTM(torch.nn.Module):
         # a single higher rank Tensor.
         num_tracks = observed.size(1)
         hidden_cell_state = (
-            [torch.zeros(self.hidden_dim, deLSTMvice=observed.device) for _ in range(num_tracks)],
+            [torch.zeros(self.hidden_dim, device=observed.device) for _ in range(num_tracks)],
             [torch.zeros(self.hidden_dim, device=observed.device) for _ in range(num_tracks)],
         )
 
@@ -276,12 +276,13 @@ class LSTMPredictor(object):
         with open(filename, 'rb') as f:
             return torch.load(f)
 
-
     def __call__(self, paths, scene_goal, n_predict=12, modes=1, predict_all=True, obs_length=9, start_length=0, args=None):
         self.model.eval()
         # self.model.train()
         with torch.no_grad():
             xy = trajnetplusplustools.Reader.paths_to_xy(paths)
+            # print(xy)
+            # input()
             # xy = augmentation.add_noise(xy, thresh=args.thresh, ped=args.ped_type)
             batch_split = [0, xy.shape[1]]
 

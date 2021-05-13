@@ -296,6 +296,8 @@ def collision_test(list_sub, name, args):
     return "NA"
 
 def eval(gt, input_file, args):
+    print(gt, input_file)
+    input()
     # Ground Truth
     reader_gt = trajnetplusplustools.Reader(gt, scene_type='paths')
     scenes_gt = [s for _, s in reader_gt.scenes()]

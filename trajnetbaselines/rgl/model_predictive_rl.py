@@ -29,7 +29,7 @@ class ModelPredictiveRL(Policy):
         self.speeds = None
         self.rotations = None
         self.action_values = None
-        self.robot_state_dim = 6
+        self.robot_state_dim = 4
         self.human_state_dim = 4
         self.v_pref = 1
         self.share_graph_model = None
@@ -188,8 +188,6 @@ class ModelPredictiveRL(Policy):
         self.speeds = speeds
         self.rotations = rotations
         self.action_space = action_space
-        # print(self.speeds, self.rotations, self.action_space)
-        # input()
 
     def predict(self, state):
         """
@@ -205,8 +203,9 @@ class ModelPredictiveRL(Policy):
         if self.reach_destination(state):
             return ActionXY(0, 0) if self.kinematics == 'holonomic' else ActionRot(0, 0)
         if self.action_space is None:
-            logging.info('Building action space with')
-            self.build_action_space(1.5)
+            vpref = 1.5
+            logging.info(f'Building action space with {vpref} max velocity')
+            self.build_action_space(vpref)
 
         probability = np.random.random()
         if self.phase == 'train' and probability < self.epsilon:
@@ -317,14 +316,11 @@ class ModelPredictiveRL(Policy):
         dmin = float('inf')
         collision = False
         for i, human in enumerate(human_states):
-            px = human.px - robot_state.px
-            py = human.py - robot_state.py
-            if self.kinematics == 'holonomic':
-                vx = human.vx - action.vx
-                vy = human.vy - action.vy
-            else:
-                vx = human.vx - action.v * np.cos(action.r + robot_state.theta)
-                vy = human.vy - action.v * np.sin(action.r + robot_state.theta)
+            px = human.px
+            py = human.py
+            vx = human.vx - action.vx
+            vy = human.vy - action.vy
+
             ex = px + vx * self.time_step
             ey = py + vy * self.time_step
             # closest distance between boundaries of two agents
@@ -336,16 +332,10 @@ class ModelPredictiveRL(Policy):
                 dmin = closest_dist
 
         # check if reaching the goal
-        if self.kinematics == 'holonomic':
-            px = robot_state.px + action.vx * self.time_step
-            py = robot_state.py + action.vy * self.time_step
-        else:
-            theta = robot_state.theta + action.r
-            px = robot_state.px + np.cos(theta) * action.v * self.time_step
-            py = robot_state.py + np.sin(theta) * action.v * self.time_step
+        px = action.vx * self.time_step
+        py = action.vy * self.time_step
 
-        end_position = np.array((px, py))
-        reaching_goal = norm(end_position - np.array([robot_state.gx, robot_state.gy])) < 0.3
+        reaching_goal = norm(np.array([robot_state.gx+px, robot_state.gy+py])) < 0.3
 
         if collision:
             reward = -0.25
