@@ -1,7 +1,7 @@
 from typing import Iterable
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+from matplotlib.animation import FuncAnimation, writers
 
 def visualise(states: Iterable, robot_pos: Iterable[tuple], goal, rewards, episode=0, scene=0):
 
@@ -32,11 +32,14 @@ def visualise(states: Iterable, robot_pos: Iterable[tuple], goal, rewards, episo
 
     def update(frame: Iterable):
         human_pos = frame[2:-1]
-        xdata = [state[0] for state in human_pos]
-        ydata = [state[1] for state in human_pos]
+        robot_x = frame[0][0][0]
+        robot_y = frame[0][0][1]
+
+        xdata = [state[0] + robot_x for state in human_pos]
+        ydata = [state[1] + robot_y for state in human_pos]
         
         humans.set_data(xdata, ydata)
-        robot.set_data(frame[0][0][0], frame[0][0][1])
+        robot.set_data(robot_x, robot_y)
         ground_truth.set_data(frame[0][1][0], frame[0][1][1])
 
         text.set_text(f'Reward: {frame[1]:.2f}')
@@ -45,4 +48,8 @@ def visualise(states: Iterable, robot_pos: Iterable[tuple], goal, rewards, episo
 
     ani = FuncAnimation(fig, update, frames=frames,
                         init_func=init, blit=True)
+    Writer = writers['ffmpeg']
+    writer = Writer(fps=10, metadata=dict(artist='Me'), bitrate=18000)
+    ani.save('im.mp4', writer=writer)
+
     plt.show()

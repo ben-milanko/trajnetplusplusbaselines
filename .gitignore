@@ -54,3 +54,6 @@ trajnetbaselines/lstm/style_encoder.py
 tests/test_style.py
 trajnetbaselines/wta_lstm_backup/
 
+*.mp4
+Trajnet_sample_1-llc-edl.csv
+Trajnet_sample_2-llc-edl.csv

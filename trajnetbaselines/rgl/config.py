@@ -31,7 +31,7 @@ class BaseEnvConfig(object):
     sim.test_scenario = 'circle_crossing'
     sim.square_width = 20
     sim.circle_radius = 4
-    sim.human_num = 4
+    sim.human_num = 2
     sim.nonstop_human = False
     sim.centralized_planning = True
 

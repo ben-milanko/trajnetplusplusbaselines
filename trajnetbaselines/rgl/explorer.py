@@ -1,4 +1,5 @@
 import numpy as np
+from .fyp_visualise import fyp_visualise
 from .action import ActionXY
 from .model_predictive_rl import ModelPredictiveRL
 from typing import Iterable
@@ -54,6 +55,7 @@ class Explorer(object):
                     self.val_scene_iter = 0
                 scene = self.val_scenes[self.val_scene_iter]
 
+            # fyp_visualise(scene)
             if supervised:
                 states, actions, rewards, robot_positions, goal = self.supervised_explorer(
                     scene, policy=policy, phase='train', clip_scene=4, early_quit=k-samples, pbar=pbar)
@@ -88,7 +90,7 @@ class Explorer(object):
 
         return states, actions, self.reward_sum
 
-    def supervised_explorer(self, scene, policy: ModelPredictiveRL, phase='train', clip_scene=4, early_quit=None, pbar=None):
+    def supervised_explorer(self, scene, policy: ModelPredictiveRL, phase='train', clip_scene=1, early_quit=None, pbar=None):
         robot_positions = []
         states: Iterable[JointState] = []
         actions: Iterable[ActionXY] = []
@@ -225,11 +227,11 @@ class Explorer(object):
                         vx = (frame.x - frames[j][i-1].x)/(1/FRAMERATE)
                         vy = (frame.y - frames[j][i-1].y)/(1/FRAMERATE)
 
-                    if np.linalg.norm((frame.x - primary[i].x, frame.y - primary[i].y)) < PED_SIZE*2:
+                    if np.linalg.norm((frame.x - robot_pos[0], frame.y - robot_pos[1])) < PED_SIZE*2:
                         collision = True
                         self.collisions += 1
                     human_states.append(ObservableState(
-                        frame.x - primary[i].x, frame.y - primary[i].y, vx, vy))
+                        frame.x - robot_pos[0], frame.y - robot_pos[1], vx, vy))
                 else:
                     human_states.append(human_states[-1])
 
